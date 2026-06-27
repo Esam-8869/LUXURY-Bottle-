@@ -1,69 +1,44 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { CartItem, Product, ProductVariant } from '@/types';
+import { create } from 'zustand'
 
-export type CartItemWithDetails = CartItem & {
-  Product: Product;
-  ProductVariant: ProductVariant;
-};
-
-interface CartState {
-  items: CartItemWithDetails[];
-  isOpen: boolean;
-  addItem: (item: CartItemWithDetails) => void;
-  removeItem: (cartItemId: string) => void;
-  updateQuantity: (cartItemId: string, quantity: number) => void;
-  clearCart: () => void;
-  toggleCart: () => void;
-  openCart: () => void;
-  closeCart: () => void;
-  getCartTotal: () => number;
+export interface CartItemType {
+  id: string
+  productId: string
+  variantId: string
+  quantity: string | number
+  product: any
+  variant: any
 }
 
-export const useCartStore = create<CartState>()(
-  persist(
-    (set, get) => ({
-      items: [],
-      isOpen: false,
-      addItem: (item) => {
-        set((state) => {
-          const existingItemIndex = state.items.findIndex(
-            (i) => i.variant_id === item.variant_id
-          );
-          if (existingItemIndex >= 0) {
-            const updatedItems = [...state.items];
-            updatedItems[existingItemIndex].quantity += item.quantity;
-            return { items: updatedItems };
-          }
-          return { items: [...state.items, item] };
-        });
-      },
-      removeItem: (cartItemId) => {
-        set((state) => ({
-          items: state.items.filter((i) => i.id !== cartItemId),
-        }));
-      },
-      updateQuantity: (cartItemId, quantity) => {
-        set((state) => ({
-          items: state.items.map((i) =>
-            i.id === cartItemId ? { ...i, quantity } : i
-          ),
-        }));
-      },
-      clearCart: () => set({ items: [] }),
-      toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
-      openCart: () => set({ isOpen: true }),
-      closeCart: () => set({ isOpen: false }),
-      getCartTotal: () => {
-        return get().items.reduce((total, item) => {
-          const price = Number(item.ProductVariant.price);
-          return total + price * item.quantity;
-        }, 0);
-      },
+interface CartState {
+  items: CartItemType[]
+  itemCount: number
+  subtotal: number
+  isOpen: boolean
+  isLoading: boolean
+  coupon: { code: string; discountValue: number; type: string } | null
+  setCartData: (data: { items: CartItemType[]; subtotal?: number }) => void
+  setLoading: (loading: boolean) => void
+  setOpen: (isOpen: boolean) => void
+  setCoupon: (coupon: any) => void
+}
+
+export const useCartStore = create<CartState>((set) => ({
+  items: [],
+  itemCount: 0,
+  subtotal: 0,
+  isOpen: false,
+  isLoading: false,
+  coupon: null,
+  setCartData: (data) =>
+    set((state) => {
+      const items = data.items || []
+      const itemCount = items.reduce((acc, item) => acc + Number(item.quantity), 0)
+      const subtotal =
+        data.subtotal ||
+        items.reduce((acc, item) => acc + Number(item.variant?.price || 0) * Number(item.quantity), 0)
+      return { items, itemCount, subtotal }
     }),
-    {
-      name: 'luxury-bottle-cart',
-      partialize: (state) => ({ items: state.items }), // Only persist items, not UI state
-    }
-  )
-);
+  setLoading: (isLoading) => set({ isLoading }),
+  setOpen: (isOpen) => set({ isOpen }),
+  setCoupon: (coupon) => set({ coupon }),
+}))

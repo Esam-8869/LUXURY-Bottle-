@@ -1,51 +1,81 @@
-import { NextResponse } from 'next/server';
-export const dynamic = 'force-dynamic';
-import { prisma } from '@/lib/prisma';
-import { verifyPassword, generateToken } from '@/lib/auth';
-import { loginSchema } from '@/lib/validators';
+export const dynamic = 'force-dynamic'
 
-export async function POST(req: Request) {
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { loginSchema } from '@/lib/validators'
+import { signToken, setAuthCookie } from '@/lib/auth'
+import { checkRateLimit } from '@/lib/redis'
+import bcrypt from 'bcryptjs'
+
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const validatedData = loginSchema.parse(body);
-
-    const user = await prisma.user.findUnique({
-      where: { email: validatedData.email }
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' },
-        { status: 401 }
-      );
+    // Rate limit: 5 attempts per 15 min per IP
+    const ip = request.headers.get('x-forwarded-for') || 'unknown'
+    const limit = await checkRateLimit(`ratelimit:login:${ip}`, 5, 15 * 60)
+    if (!limit.allowed) {
+      return NextResponse.json({ error: 'Too many attempts', code: 'RATE_LIMIT_EXCEEDED' }, { status: 429 })
     }
 
-    const isValid = await verifyPassword(validatedData.password, user.password_hash);
-
-    if (!isValid) {
-      return NextResponse.json(
-        { error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' },
-        { status: 401 }
-      );
+    const body = await request.json()
+    const validation = loginSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json({
+        error: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        details: validation.error.flatten()
+      }, { status: 400 })
     }
 
-    const token = generateToken({ userId: user.id, role: user.role });
+    const { email, password } = validation.data
+    const user = await prisma.user.findUnique({ where: { email } })
 
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role
-      },
-      token
-    }, { status: 200 });
-  } catch (error: any) {
-    console.error('Login error:', error);
-    return NextResponse.json(
-      { error: 'Login failed', details: error.message },
-      { status: 400 }
-    );
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      return NextResponse.json({ error: 'Unauthorized', code: 'AUTH_FAILED', message: 'Invalid email or password' }, { status: 401 })
+    }
+
+    const token = await signToken({ userId: user.id, email: user.email, role: user.role })
+
+    const response = NextResponse.json({
+      data: {
+        user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role }
+      }
+    }, { status: 200 })
+
+    setAuthCookie(response, token)
+
+    // Merge guest cart if sessionId cookie exists
+    const sessionId = request.cookies.get('session_id')?.value
+    if (sessionId) {
+      const guestCart = await prisma.cart.findUnique({ where: { sessionId }, include: { items: true } })
+      if (guestCart && guestCart.items.length > 0) {
+        // Find user cart
+        let userCart = await prisma.cart.findUnique({ where: { userId: user.id }, include: { items: true } })
+        if (!userCart) {
+          userCart = await prisma.cart.create({ data: { userId: user.id }, include: { items: true } })
+        }
+        // Move items
+        for (const item of guestCart.items) {
+          const existing = userCart.items.find(i => i.variantId === item.variantId)
+          if (existing) {
+            await prisma.cartItem.update({
+              where: { id: existing.id },
+              data: { quantity: existing.quantity + item.quantity }
+            })
+          } else {
+            await prisma.cartItem.create({
+              data: { cartId: userCart.id, productId: item.productId, variantId: item.variantId, quantity: item.quantity }
+            })
+          }
+        }
+        await prisma.cart.delete({ where: { id: guestCart.id } })
+        response.cookies.delete('session_id') // clear session id
+      }
+    }
+
+    return response
+
+  } catch (error) {
+    console.error('[LOGIN_ERROR]', error)
+    return NextResponse.json({ error: 'Internal server error', code: 'SERVER_ERROR' }, { status: 500 })
   }
 }

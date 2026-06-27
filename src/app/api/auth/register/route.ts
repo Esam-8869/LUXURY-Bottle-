@@ -1,55 +1,60 @@
-import { NextResponse } from 'next/server';
-export const dynamic = 'force-dynamic';
-import { prisma } from '@/lib/prisma';
-import { hashPassword, generateToken } from '@/lib/auth';
-import { registerSchema } from '@/lib/validators';
+export const dynamic = 'force-dynamic'
 
-export async function POST(req: Request) {
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { registerSchema } from '@/lib/validators'
+import { signToken, setAuthCookie } from '@/lib/auth'
+import { sendWelcomeEmail } from '@/lib/email'
+import bcrypt from 'bcryptjs'
+
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-    const validatedData = registerSchema.parse(body);
+    const body = await request.json()
+    const validation = registerSchema.safeParse(body)
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email }
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'Email already in use', code: 'EMAIL_IN_USE' },
-        { status: 400 }
-      );
+    if (!validation.success) {
+      return NextResponse.json({
+        error: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        details: validation.error.flatten()
+      }, { status: 400 })
     }
 
-    const hashedPassword = await hashPassword(validatedData.password);
+    const { email, password, firstName, lastName, phone } = validation.data
+
+    const existingUser = await prisma.user.findUnique({ where: { email } })
+    if (existingUser) {
+      return NextResponse.json({ error: 'Conflict', code: 'CONFLICT', message: 'Email already exists' }, { status: 409 })
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12)
 
     const user = await prisma.user.create({
       data: {
-        email: validatedData.email,
-        password_hash: hashedPassword,
-        first_name: validatedData.first_name,
-        last_name: validatedData.last_name,
-        phone: validatedData.phone,
-        role: 'CUSTOMER',
+        email,
+        passwordHash,
+        firstName,
+        lastName,
+        phone,
       }
-    });
+    })
 
-    const token = generateToken({ userId: user.id, role: user.role });
+    const token = await signToken({ userId: user.id, email: user.email, role: user.role })
+    
+    // Send welcome email async (don't await so we don't block response)
+    sendWelcomeEmail(user.email, user.firstName).catch(console.error)
 
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role
-      },
-      token
-    }, { status: 201 });
-  } catch (error: any) {
-    console.error('Registration error:', error);
-    return NextResponse.json(
-      { error: 'Registration failed', details: error.message },
-      { status: 400 }
-    );
+    const response = NextResponse.json({
+      data: {
+        user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role }
+      }
+    }, { status: 201 })
+
+    setAuthCookie(response, token)
+    return response
+
+  } catch (error) {
+    console.error('[REGISTER_ERROR]', error)
+    return NextResponse.json({ error: 'Internal server error', code: 'SERVER_ERROR' }, { status: 500 })
   }
 }
