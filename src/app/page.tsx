@@ -1,101 +1,72 @@
-import Image from "next/image";
+import React from 'react';
+import { HeroBanner } from '@/components/home/HeroBanner';
+import { CategoryStrip } from '@/components/home/CategoryStrip';
+import { TopSelling } from '@/components/home/TopSelling';
 
-export default function Home() {
+// In a real app, this would fetch from the database
+const dummyProducts: any[] = [
+  {
+    id: '1',
+    name: 'The Glass Origin',
+    slug: 'the-glass-origin',
+    base_price: '45.00',
+    ProductImages: [{ url: '/images/product-1.jpg', is_primary: true }],
+    ProductVariants: [{ id: 'v1', color_name: 'Clear', hex_code: '#ffffff' }],
+  },
+  {
+    id: '2',
+    name: 'Matte Onyx Edition',
+    slug: 'matte-onyx-edition',
+    base_price: '65.00',
+    ProductImages: [{ url: '/images/product-2.jpg', is_primary: true }],
+    ProductVariants: [{ id: 'v2', color_name: 'Onyx', hex_code: '#1A1A1A' }],
+  },
+  {
+    id: '3',
+    name: 'Sage Infusion',
+    slug: 'sage-infusion',
+    base_price: '55.00',
+    ProductImages: [{ url: '/images/product-3.jpg', is_primary: true }],
+    ProductVariants: [{ id: 'v3', color_name: 'Sage', hex_code: '#8C9A86' }],
+  }
+];
+
+export default async function Home() {
+  // const products = await prisma.product.findMany({ where: { is_top_selling: true }, include: { ... } })
+  
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
+    <>
+      <HeroBanner />
+      <CategoryStrip />
+      <TopSelling products={dummyProducts} />
+      
+      {/* Featured Product Section (Placeholder) */}
+      <section className="py-24 md:py-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12 md:gap-24">
+        <div className="flex-1 w-full relative aspect-[4/5] md:aspect-auto md:h-[80vh] rounded-2xl overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/featured.jpg" alt="Featured Product" className="absolute inset-0 w-full h-full object-cover" />
+        </div>
+        <div className="flex-1 flex flex-col justify-center items-start">
+          <p className="text-xs tracking-caps uppercase text-ink-muted mb-4">Editors Pick</p>
+          <h2 className="font-display text-4xl md:text-6xl text-ink mb-6">The Architect Series</h2>
+          <p className="text-ink-soft max-w-md mb-8">
+            Engineered for the modern minimalist. Double-walled borosilicate glass meets aerospace-grade aluminum. A testament to pure utility and refined aesthetics.
+          </p>
+          <a href="/products/architect-series" className="border-b border-ink pb-1 text-sm font-medium hover:text-dusty-rose hover:border-dusty-rose transition-colors">
+            Discover the Series
           </a>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </section>
+      
+      {/* Newsletter (Placeholder) */}
+      <section className="bg-ink py-24 text-center px-4">
+        <h2 className="font-display text-4xl md:text-5xl text-white mb-4">Stay in the Loop</h2>
+        <p className="text-cream-light/70 mb-8 max-w-md mx-auto">Join 50,000+ subscribers. No spam, only editorial content and exclusive drops.</p>
+        <form className="max-w-md mx-auto flex gap-4">
+          <input type="email" placeholder="Email address" className="flex-1 bg-transparent border-b border-white/30 text-white placeholder:text-white/50 focus:outline-none focus:border-white px-2 py-3" required />
+          <button type="submit" className="text-white uppercase tracking-caps text-xs font-medium hover:text-dusty-rose transition-colors">Subscribe</button>
+        </form>
+      </section>
+    </>
   );
 }
